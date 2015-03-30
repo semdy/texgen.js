@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>texgen.js</title>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				margin: 0px;
+				background: #111;
+			}
+			canvas {
+			  padding-left: 0;
+			  padding-right: 0;
+			  margin-left: auto;
+			  margin-right: auto;
+			  display: block;
+			}
+		</style>
+	</head>
+	<body>
+    <div id="codeDiv" style="background: #f0f0f0; position: absolute; left:5px; bottom:5px"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5/dat.gui.min.js"></script>
+		<script src="../src/TexGen.js"></script>
+		<script>
+		/*
+			Author: Zachary Stenger
+			made this to learn about mr. doob's TexGen.js library (http://texgenjs.org/)
+		*/
+
+			var texture;
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+
+      var canvas = document.createElement('canvas');
+
+			canvas.width = width;			
+			canvas.height = height;			
+			document.body.appendChild( canvas );
+
+			var context = canvas.getContext("2d");
+
+			
+      var clear = false; 
+
+      //TODO ability to alter this code and update display 
+      //code to be displayed
+      var tgCode = 'var texture = new TG.Texture('+width+', '+height+')';
+
+			var operation, func, tint;
+
+  		var gui, guiParams, guiSineDistort;
+      var guiTransform;//, guiSinXY;//, guiNormalize;
+  		gui = new dat.GUI();
+      //guiNormalize = gui.addFolder('Normalize specific');
+      guiFractal = gui.addFolder('FractalNoise specific');
+      guiTransform = gui.addFolder('Transform specific');
+      guiSineDistort = gui.addFolder('SineDistort specific');
+      //guiSinXY = gui.addFolder('Sinx/SinY specific');
+
+  		guiParams = 
+  		{
+    		operation: 'add',
+    		func: 'SinX',
+    		tint: "#ffffff",
+        //normalizeOffset: 0,
+        sineOffset: 0,
+    		frequency: 1.0,
+    		width: 32,
+        height: 32,
+        radius: 50,
+        delta: 1,
+    		xPosition: 0,
+    		yPosition: 0,
+        update: function() {updateTexture();},
+        xOffset: 0,
+        yOffset: 0,
+        angle: 0,
+        xScale: 1,
+        yScale: 1,       
+        multiplier: 0,       
+        strength: 0,       
+        rowShift: 0,     
+        xSine: 4,
+        ySine: 4,
+        xAmplitude: 16,
+        yAmplitude: 16,
+        baseFrequency: 0.03125,
+        amplitude: 0.4,
+        persistence: 0.72,
+        octaves: 4,
+        step: 4
+  		};
+
+  		var guiOperation = gui.add( guiParams, 'operation', [ 'add', 'sub', 'mul', 'div', 'and', 'xor', 'min', 'max', 'set'  ] );
+  		guiOperation.onChange(function(value)
+  		{   
+      	operation = value;
+  		});
+
+  		var guiFunc = gui.add( guiParams, 'func', [ 'SinX', 'SinY', 'Number', 'Noise', 'OR', 'XOR', 'FractalNoise', 'CheckerBoard', 'Rect', 'Circle', 'SineDistort', 'Twirl', 'Transform', 'Pixelate', 'Normalize'  ] );
+  		guiFunc.onChange(function(value){ func = value; });
+
+   		var guiTint = gui.addColor( guiParams, 'tint' );
+  		guiTint.onChange(function(value){ tint = value; });
+
+      //SinX, SinY
+      var guiSineOffset = gui.add( guiParams, 'sineOffset' ).name('offset');
+      guiSineOffset.onChange(function(value){ sineOffset = value; });
+
+      //TODO frequency isn't displayed to decimal places
+      var guiFrequency = gui.add( guiParams, 'frequency').min(-1).max(1).step(0.0001);
+      guiFrequency.onChange(function(value){ frequency = value; });
+      
+   		var guiSizeW = gui.add( guiParams, 'width' ).min(0).name('x size(width)');
+  		guiSizeW.onChange(function(value){ width = value; });
+
+   		var guiSizeH = gui.add( guiParams, 'height' ).min(0).name('y size(height)');
+  		guiSizeH.onChange(function(value){ height = value; });
+
+      var guiRadius = gui.add( guiParams, 'radius' ).min(0);
+      guiRadius.onChange(function(value){ radius = value; });
+
+      var guiDelta = gui.add( guiParams, 'delta' );
+      guiDelta.onChange(function(value){ delta = value; });
+
+      var guiXPosition = gui.add( guiParams, 'xPosition' ).min(0).name('x position');
+      guiXPosition.onChange(function(value){ xPosition = value; });
+
+      var guiYPosition = gui.add( guiParams, 'yPosition' ).min(0).name('y position');
+      guiYPosition.onChange(function(value){ yPosition = value; });
+
+      var guiXOffset = gui.add( guiParams, 'xOffset' ).min(0).name('x offset');
+      guiXOffset.onChange(function(value){ xOffset = value; });
+
+      var guiYOffset = gui.add( guiParams, 'yOffset' ).min(0).name('y offset');
+      guiYOffset.onChange(function(value){ yOffset = value; });
+
+      var guiStrength = gui.add( guiParams, 'strength' ).min(0);
+      guiYPosition.onChange(function(value){ strength = value; });
+
+      var guiRowShift = gui.add( guiParams, 'rowShift' ).min(0);
+      guiRowShift.onChange(function(value){ rowShift = value; });
+      
+      //add buttons
+      gui.add( guiParams, 'update');
+
+      //Normalize
+      /*var guiMultiplier = guiNormalize.add( guiParams, 'multiplier' ).min(0);
+      guiMultiplier.onChange(function(value){ multiplier = value; });
+
+      var guiNormalizeOffset = guiNormalize.add( guiParams, 'normalizeOffset' ).name('offset');
+      guiNormalizeOffset.onChange(function(value){ normalizeOffset = value; });*/
+
+
+      //Transform
+      var guiXScale = guiTransform.add( guiParams, 'xScale' ).min(0.001).name('x scale');
+      guiXScale.onChange(function(value){ xScale = value; });
+
+      var guiYScale = guiTransform.add( guiParams, 'yScale' ).min(0.001).name('y scale');
+      guiYScale.onChange(function(value){ yScale = value; });
+
+      var guiAngle = guiTransform.add( guiParams, 'angle' ).min(0);
+      guiAngle.onChange(function(value){ angle = value; });
+
+      //SineDisort
+      var guiXSine = guiSineDistort.add( guiParams, 'xSine' ).min(0).name('x sine');
+      guiXSine.onChange(function(value){ xSine = value; });
+
+      var guiYSine = guiSineDistort.add( guiParams, 'ySine' ).min(0).name('y sine');
+      guiYSine.onChange(function(value){ ySine = value; });
+
+      var guiXAmplitude = guiSineDistort.add( guiParams, 'xAmplitude' ).min(0).name('x amplitude');
+      guiXAmplitude.onChange(function(value){ xAmplitude = value; });
+
+      var guiYAmplitude = guiSineDistort.add( guiParams, 'yAmplitude' ).min(0).name('y amplitude');
+      guiYAmplitude.onChange(function(value){ yAmplitude = value; });
+
+      //FractalNoise
+      var guiBaseFrequency = guiFractal.add( guiParams, 'baseFrequency' );
+      guiBaseFrequency.onChange(function(value){ baseFrequency = value; });
+
+      var guiAmplitude = guiFractal.add( guiParams, 'amplitude' );
+      guiAmplitude.onChange(function(value){ amplitude = value; });
+
+      var guiPersistence = guiFractal.add( guiParams, 'persistence' );
+      guiPersistence.onChange(function(value){ persistence = value; });
+
+      var guiOctaves = guiFractal.add( guiParams, 'octaves' );
+      guiOctaves.onChange(function(value){ octaves = value; });
+
+      var guiStep = guiFractal.add( guiParams, 'step' );
+      guiStep.onChange(function(value){ step = value; });
+      //end gui
+
+      texture = new TG.Texture( width, height ); 
+
+  		function operateOnTexture(texture, params) {
+  			var operation = params['operation'];
+  			var func = params['func'];
+        var tint = convertToRGB(params['tint']);
+        var sineOffset = params['sineOffset'];
+  			var frequency = params['frequency'];
+  			var width = params['width'];
+        var height = params['height'];
+        var radius = params['radius'];
+        var xPosition = params['xPosition'];
+        var yPosition = params['yPosition'];
+        var xOffset = params['xOffset'];
+        var yOffset = params['yOffset'];
+        var angle = params['angle'];
+        var xScale = params['xScale'];
+        var yScale = params['yScale'];
+        /*var normalizeOffset = params['normalizeOffset'];
+        var multiplier = params['multiplier'];*/
+        var strength = params['strength'];
+        var rowShift = params['rowShift'];
+        var delta = params['delta'];
+        var xSine = params['xSine'];
+        var ySine = params['ySine'];
+        var xAmplitude = params['xAmplitude'];
+        var yAmplitude = params['yAmplitude'];
+        var baseFrequency = params['baseFrequency'];
+        var amplitude = params['amplitude'];
+        var persistence = params['persistence'];
+        var octaves = params['octaves'];
+        var step = params['step'];
+
+
+        tgCode +=  '\<br\>&nbsp;&nbsp;&nbsp;&nbsp;';
+
+  			var futureCode = '.';
+  			futureCode += operation;
+  			futureCode += '( new TG.';
+  			futureCode += func;
+  			futureCode += '()';
+  			if(func === 'SinX' || func === 'SinY') {
+  					if(sineOffset != 0) {
+  						futureCode += '.offset( ' + sineOffset + ' )';
+  					}
+  					if(frequency != 1) {
+  						futureCode += '.frequency( ' + frequency + ' )';
+  					}
+  			}
+        else if(func === 'Rect') {
+  					if(xPosition != 0 || yPosition != 0) {
+  						futureCode += '.position( ' + xPosition + ', ' + yPosition + ' )';
+  					}
+            if(width != 32 || height != 32){
+              futureCode += '.size( ' + width + ', ' + height + ' )';
+            }
+  				}
+        else if(func === 'Circle') {
+            if( radius != 50 ) {
+              futureCode += '.radius( ' + radius + ' )';
+            }
+            if( delta != 1) {
+              futureCode += '.delta( ' + delta + ' )';
+            }
+            if(xPosition != 0 || yPosition != 0) {
+              futureCode += '.position( ' + xPosition + ', ' + yPosition + ' )';
+            }
+        }
+        else if(func === 'CheckerBoard') {
+            if(width != 32 || height != 32){
+              futureCode += '.size( ' + width + ', ' + height + ' )';
+            }
+            if(xOffset != 0 || yOffset != 0) {
+              futureCode += '.offset( ' + xOffset + ', ' + yOffset + ' )';              
+            }
+            if(rowShift != 0) {
+              futureCode += '.rowShift( ' + rowShift + ' )';
+            }
+        }
+        else if(func === 'Pixelate') {
+            if(width != 1 || height != 1){
+              futureCode += '.size( ' + width + ', ' + height + ' )';
+            }
+        }
+        else if(func === 'Twirl') {
+            if(strength != 0) {
+              futureCode += '.strength( ' + strength + ' )';           
+            }
+            if(radius != 120 ) {
+              futureCode += '.radius( ' + radius + ' )';              
+            }
+            if(xPosition != 128 || yPosition != 128) {
+              futureCode += '.position( ' + xPosition + ', ' + yPosition + ' )';
+            }
+        }
+        /*else if(func === 'Normalize') {
+            if(multiplier != 0) {
+              futureCode += '.multiplier( ' + multiplier + ' )';           
+            }
+            if(normalizeOffset != 0) {
+              futureCode += '.offset( ' + normalizeOffset + ' )';              
+            }
+        }*/
+        else if(func === 'Transform') {
+            if(angle != 0) {
+              futureCode += '.angle( ' + angle + ' )';           
+            }
+            if(xOffset != 0 || yOffset != 0) {
+              futureCode += '.offset( ' + xOffset + ', ' + yOffset + ' )';              
+            }
+            if(xScale != 1 || yScale != 1) {
+              futureCode += '.scale( ' + xScale + ', ' + yScale + ' )';              
+            }
+        }
+        else if(func === 'SineDistort') {
+            if(xOffset != 0 || yOffset != 0) {
+              futureCode += '.offset( ' + xOffset + ', ' + yOffset + ' )';              
+            }            
+            if(xAmplitude != 16 || yAmplitude != 16) {
+              futureCode += '.amplitude( ' + xAmplitude + ', ' + yAmplitude + ' )';              
+            }            
+            if(xSine != 4 || ySine != 4) {
+              futureCode += '.sines( ' + xSine + ', ' + ySine + ' )';              
+            }            
+        }
+        else if(func === 'FractalNoise') {
+            if(baseFrequency != 0.03125) {
+              futureCode += '.baseFrequency( ' + baseFrequency + ' )';                            
+            }
+            if(amplitude != 0.4) {
+              futureCode += '.amplitude( ' + amplitude + ' )';                            
+            }
+            if(persistence != 0.72) {
+              persistence += '.persistence( ' + persistence + ' )';                            
+            }
+            if(octaves != 4) {
+              octaves += '.octaves( ' + octaves + ' )';                            
+            }
+
+            if(step != 4) {
+              futureCode += '.step( ' + step + ' )';                            
+            }
+        }
+  			//check tint here because every func has it
+  			if(params['tint'] != "#ffffff") {
+  				var r = tint['r'];
+  				var g = tint['g'];
+  				var b = tint['b'];
+  				futureCode += '.tint( '+r+', '+g+', '+b+ ' )';
+  			}
+        tgCode += futureCode + ' )';
+  			futureCode += ' );'
+  			//execute code
+  			eval('texture'+futureCode);
+  		}
+
+  		function updateTexture() {
+	  		operateOnTexture(texture,guiParams);
+        render();
+        displayCode(tgCode);
+  		}
+
+  		function convertToRGB(hexcode) {
+  			var hexR = hexcode.substring(1,3);
+  			var hexG = hexcode.substring(3,5);
+  			var hexB = hexcode.substring(5,7);
+  			var r = parseInt(hexR,16)/255;
+  			var g = parseInt(hexG,16)/255;
+  			var b = parseInt(hexB,16)/255;
+  			return {'r': r, 'g': g, 'b': b};
+  		}
+
+  		function displayCode(code) {
+        if(code != '') {
+          code += '\<br\>&nbsp;&nbsp;&nbsp;&nbsp;';
+          code += '.toCanvas();';
+        }
+        document.getElementById("codeDiv").innerHTML = code;
+  		}
+
+			function render() {
+				var imageData = texture.toImageData(context);
+        context.putImageData( imageData, 0, 0 );
+			}
+
+
+		</script>
+	</body>
+</html>
