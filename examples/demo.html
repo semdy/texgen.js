@@ -26,6 +26,8 @@
 		/*
 			Author: Zachary Stenger
 			made this to learn about mr. doob's TexGen.js library (http://texgenjs.org/)
+      I've got this hosted on Google Drive:
+      http://goo.gl/hcHvPk
 		*/
 
 			var texture;
@@ -111,7 +113,7 @@
       //TODO frequency isn't displayed to decimal places
       var guiFrequency = gui.add( guiParams, 'frequency').min(-1).max(1).step(0.0001);
       guiFrequency.onChange(function(value){ frequency = value; });
-      
+
    		var guiSizeW = gui.add( guiParams, 'width' ).min(0).name('x size(width)');
   		guiSizeW.onChange(function(value){ width = value; });
 
